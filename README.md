@@ -8,9 +8,11 @@ Omniord prefers local models (via Ollama) for routing, task splitting, and tool
 drafting, and escalates to cloud APIs (Anthropic / OpenAI) only when a local
 model's confidence or capability is insufficient.
 
-> **Status:** early development. **Phase 1 (project setup & CLI)** is in place.
-> See [`CLAUDE.md`](./CLAUDE.md) for the full architecture blueprint, the
-> phased build plan, and the conventions every change must follow.
+> **Status:** all six build phases are implemented — hybrid router, DAG engine
+> and event bus, AST-safe sandboxed tool factory, safety guardrails and the
+> agent swarm, and the persistent memory store with a core orchestrator.
+> See [`CLAUDE.md`](./CLAUDE.md) for the architecture, the module map, and the
+> conventions every change must follow.
 
 ## Install
 

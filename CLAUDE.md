@@ -2,12 +2,12 @@
 
 Guidance for AI assistants (Claude Code and others) working in this repository.
 
-> **Status: greenfield.** This repo is being built from the architecture
-> blueprint below. When you implement a piece, keep this file in sync with what
-> actually exists — mark modules as implemented, correct anything that drifts
-> from reality, and add concrete commands as they become runnable. Treat the
-> "Blueprint" sections as the target design and the "Working agreements" and
-> "Current state" sections as the source of truth for what is done.
+> **Status: all six phases implemented** (see "Current state" below). The
+> architecture below is both the original blueprint and, now, a description of
+> what exists. When you change a subsystem, keep this file in sync — correct
+> anything that drifts from reality and update the "Current state" section.
+> Treat the "Working agreements" and "Current state" sections as the source of
+> truth for how the code is built and what is done.
 
 ---
 
@@ -98,7 +98,8 @@ omniord/
 │   │   ├── __init__.py
 │   │   ├── dag.py                  # TaskNode & DAG structure
 │   │   ├── engine.py               # Async execution engine
-│   │   └── events.py               # Pub/sub event bus
+│   │   ├── events.py               # Pub/sub event bus
+│   │   └── orchestrator.py         # Memory recall → swarm run → persist
 │   ├── router/
 │   │   ├── __init__.py
 │   │   ├── base.py                 # Abstract provider interface
@@ -122,10 +123,13 @@ omniord/
 │       ├── working.py              # Short-term scratchpad
 │       └── store.py                # Persistent SQLite vector store
 └── tests/
-    ├── test_dag.py
+    ├── test_config.py
+    ├── test_cli.py
     ├── test_router.py
+    ├── test_dag.py
     ├── test_tool_factory.py
-    └── test_safety.py
+    ├── test_safety.py
+    └── test_integration.py
 ```
 
 ---
@@ -328,13 +332,24 @@ nodes through the Phase-3 engine with the guard enforced on each worker step, a
 shared `WorkingMemory`, and per-node agent teardown), and `memory/working.py`
 (the thread-safe `WorkingMemory` scratchpad).
 
-Tests: `test_config.py`, `test_cli.py`, `test_router.py`, `test_dag.py`,
-`test_tool_factory.py`, `test_safety.py` (80 tests, passing). Remaining: the
-persistent memory store and end-to-end integration (Phase 6).
+*Phase 6* — the persistent memory store and the core orchestrator:
+`memory/store.py` (SQLite-backed `MemoryStore` with JSON-stored embedding
+vectors and cosine semantic search, a dependency-free deterministic
+`HashingEmbedder` default, metadata filtering, and cross-session persistence;
+the Phase-2 `Router` can be dropped in as the embedder) and
+`core/orchestrator.py` (the `Orchestrator` that recalls relevant prior episodes
+into the swarm's working memory, runs the task DAG through the guarded swarm, and
+persists the outcome for future recall).
+
+**All six phases are complete.** Tests: `test_config.py`, `test_cli.py`,
+`test_router.py`, `test_dag.py`, `test_tool_factory.py`, `test_safety.py`,
+`test_integration.py` (87 tests, passing) — including an end-to-end pipeline that
+synthesizes a tool with the factory, runs it in the sandbox as a DAG through the
+swarm, saves the result to the store, and retrieves it by semantic search.
 
 - [x] Phase 1 — Project setup & CLI
 - [x] Phase 2 — Hybrid LLM router
 - [x] Phase 3 — DAG engine & event bus
 - [x] Phase 4 — AST safety, sandbox, tool factory
 - [x] Phase 5 — Safety guardrails & agent swarm
-- [ ] Phase 6 — Memory system & end-to-end integration
+- [x] Phase 6 — Memory system & end-to-end integration
