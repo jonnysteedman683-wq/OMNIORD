@@ -282,16 +282,28 @@ pytest tests/test_config.py -q
 
 ## 9. Current state
 
-**Phase 1 is implemented.** The package (`omniord/`) has `config.py`
-(`pydantic-settings`, nested local/cloud tiers) and `main.py` (Typer + Rich CLI
-with a banner and the `version`, `config`, and `run` commands). `run` is a
-recognized command but reports that orchestration is not yet implemented.
-Tests: `tests/test_config.py`, `tests/test_cli.py` (10 tests, passing). The
-`core`, `router`, `tools`, `agents`, `safety`, and `memory` subpackages do not
-exist yet — they arrive in their respective phases.
+**Phases 1–2 are implemented.**
+
+*Phase 1* — the package (`omniord/`) has `config.py` (`pydantic-settings`,
+nested local/cloud tiers) and `main.py` (Typer + Rich CLI with a banner and the
+`version`, `config`, and `run` commands). `run` is a recognized command but
+reports that orchestration is not yet implemented.
+
+*Phase 2* — the `router/` package: `base.py` (the `LLMProvider` interface plus
+`Message`/`GenerationResult` Pydantic models and provider exceptions),
+`providers/` (`OllamaProvider` local tier; `AnthropicProvider` and
+`OpenAIProvider` cloud tiers, all async over `httpx`), and `router.py` (the
+`Router` with the tier-0/1/2 policy and automatic local→cloud fallback on
+health-check failure, error, latency-limit timeout, or low confidence).
+Provider connectors are unit-tested with `httpx.MockTransport`; router policy is
+tested with in-memory fake providers.
+
+Tests: `tests/test_config.py`, `tests/test_cli.py`, `tests/test_router.py`
+(26 tests, passing). The `core`, `tools`, `agents`, `safety`, and `memory`
+subpackages do not exist yet — they arrive in their respective phases.
 
 - [x] Phase 1 — Project setup & CLI
-- [ ] Phase 2 — Hybrid LLM router
+- [x] Phase 2 — Hybrid LLM router
 - [ ] Phase 3 — DAG engine & event bus
 - [ ] Phase 4 — AST safety, sandbox, tool factory
 - [ ] Phase 5 — Safety guardrails & agent swarm
