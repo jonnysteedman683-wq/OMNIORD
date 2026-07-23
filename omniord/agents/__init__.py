@@ -7,8 +7,10 @@ from omniord.agents.base import (
     CoderAgent,
     FunctionAgent,
     ReviewerAgent,
+    RouterAgent,
     SearchAgent,
     SysAdminAgent,
+    build_agent,
 )
 from omniord.agents.swarm import Swarm, SwarmError
 
@@ -17,8 +19,10 @@ __all__ = [
     "CoderAgent",
     "FunctionAgent",
     "ReviewerAgent",
+    "RouterAgent",
     "SearchAgent",
     "Swarm",
     "SwarmError",
     "SysAdminAgent",
+    "build_agent",
 ]

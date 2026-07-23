@@ -29,11 +29,17 @@ def test_config_command_lists_tiers() -> None:
     assert "cloud.provider" in result.output
 
 
-def test_run_is_recognized_but_not_yet_implemented() -> None:
+def test_run_reports_when_no_model_available() -> None:
+    # With no local Ollama server and no cloud key, the router has no tier;
+    # the command should fail gracefully rather than crash.
     result = runner.invoke(app, ["run", "do a thing"])
-    assert result.exit_code == 0
-    assert "do a thing" in result.output
-    assert "not implemented" in result.output.lower()
+    assert result.exit_code == 1
+    assert "No model available" in result.output
+
+
+def test_run_rejects_bad_tier() -> None:
+    result = runner.invoke(app, ["run", "do a thing", "--tier", "bogus"])
+    assert result.exit_code == 2
 
 
 def test_help_lists_commands() -> None:

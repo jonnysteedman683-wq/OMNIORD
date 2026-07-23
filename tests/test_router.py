@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Sequence
 
 import httpx
 import pytest

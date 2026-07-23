@@ -8,14 +8,29 @@ than pretending to work.
 
 from __future__ import annotations
 
+import asyncio
+
 import typer
 from rich.console import Console
+from rich.live import Live
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
 from omniord import __version__
+from omniord.agents.base import RouterAgent
+from omniord.agents.swarm import Swarm
 from omniord.config import OmniordSettings, get_settings
+from omniord.core.events import EventBus
+from omniord.core.orchestrator import OrchestrationResult, Orchestrator
+from omniord.core.planner import Planner
+from omniord.memory.store import MemoryStore
+from omniord.progress import ProgressTracker
+from omniord.router.base import ProviderError
+from omniord.router.providers import make_cloud_provider
+from omniord.router.providers.ollama import OllamaProvider
+from omniord.router.router import Router, RouterError
+from omniord.safety.guard import Action, RiskAssessment, SafetyGuard
 
 app = typer.Typer(
     name="omniord",
@@ -101,20 +116,83 @@ def run(
         help="Force a routing tier: auto | local | cloud.",
     ),
 ) -> None:
-    """Plan and execute a task (orchestration lands in a later phase)."""
+    """Plan a task into a DAG and execute it through the guarded agent swarm."""
     settings = get_settings()
+    if tier not in ("auto", "local", "cloud"):
+        console.print("[red]--tier must be one of: auto, local, cloud[/red]")
+        raise typer.Exit(code=2)
     print_banner()
-    console.print(f"[bold]Task:[/bold] {prompt}")
-    console.print(f"[bold]Tier:[/bold] {tier}   [bold]prefer_local:[/bold] {settings.prefer_local}")
-    console.print(
-        Panel(
-            "The orchestration engine is not implemented yet (Phase 1).\n"
-            "Task decomposition, routing, and execution arrive in Phases 2–6.",
-            title="Not yet implemented",
-            border_style="yellow",
+    console.print(f"[bold]Task:[/bold] {prompt}\n")
+    try:
+        result = asyncio.run(_orchestrate(prompt, settings, tier))
+    except (RouterError, ProviderError) as exc:
+        console.print(
+            Panel(
+                f"Could not reach a model tier: {exc}\n\n"
+                "Start a local Ollama server (see OMNIORD_LOCAL__BASE_URL) or set a "
+                "cloud API key (e.g. OMNIORD_CLOUD__ANTHROPIC_API_KEY).",
+                title="No model available",
+                border_style="red",
+            )
         )
+        raise typer.Exit(code=1) from None
+    _print_result(result)
+
+
+def _build_router(settings: OmniordSettings) -> Router:
+    local = OllamaProvider(settings.local)
+    cloud = make_cloud_provider(settings.cloud)
+    return Router(settings, local=local, cloud=cloud)
+
+
+def _cli_confirm(action: Action, assessment: RiskAssessment) -> bool:
+    return typer.confirm(
+        f"Allow {assessment.level.value} action '{action.kind}'"
+        f" on {action.target or '-'}?",
+        default=False,
     )
-    raise typer.Exit(code=0)
+
+
+async def _orchestrate(prompt: str, settings: OmniordSettings, tier: str) -> OrchestrationResult:
+    force = None if tier == "auto" else tier
+    router = _build_router(settings)
+    try:
+        plan = await Planner(router).plan(prompt, force=force)
+        dag = plan.to_dag()
+
+        bus = EventBus()
+        tracker = ProgressTracker()
+        bus.subscribe(tracker.handle)
+
+        store = MemoryStore(settings.workspace / ".omniord" / "memory.db")
+        guard = SafetyGuard(
+            confirm=_cli_confirm,
+            on_notice=lambda msg: console.print(f"[dim]{msg}[/dim]"),
+        )
+        swarm = Swarm(bus=bus, guard=guard, max_retries=settings.max_retries)
+        for plan_node in plan.nodes:
+            swarm.assign(plan_node.id, RouterAgent(router, name=plan_node.id, force=force))
+        orchestrator = Orchestrator(store, swarm=swarm, bus=bus)
+
+        with Live(tracker.render(), console=console, refresh_per_second=8) as live:
+            bus.subscribe(lambda _event: live.update(tracker.render()))
+            result = await orchestrator.run(dag, task=prompt)
+            live.update(tracker.render())
+        store.close()
+        return result
+    finally:
+        await router.aclose()
+
+
+def _print_result(result: OrchestrationResult) -> None:
+    for node in result.nodes.values():
+        text = node.outputs.get("text") if isinstance(node.outputs, dict) else None
+        if node.status.value == "completed" and text:
+            console.print(Panel(str(text), title=node.id, border_style="green"))
+        elif node.status.value == "failed":
+            console.print(Panel(node.error or "failed", title=node.id, border_style="red"))
+    status = "[green]succeeded[/green]" if result.succeeded else "[yellow]partial[/yellow]"
+    console.print(f"\nRun {status}.")
 
 
 def main() -> None:

@@ -14,9 +14,11 @@ fetches → moderate; a ``ReviewerAgent`` reads → safe).
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Awaitable, Callable
+from collections.abc import Awaitable, Callable
 
 from omniord.core.dag import TaskNode
+from omniord.router.base import Message
+from omniord.router.router import Router, TaskKind
 from omniord.safety.guard import Action
 
 Handler = Callable[[TaskNode, dict], Awaitable[dict]]
@@ -106,3 +108,58 @@ class ReviewerAgent(_TypedAgent):
 class SysAdminAgent(_TypedAgent):
     kind = "sysadmin"
     default_action_kind = "shell"  # critical
+
+
+class RouterAgent(BaseAgent):
+    """An agent that executes a node by reasoning with the hybrid router.
+
+    It builds a prompt from the node's description, prior dependency outputs, and
+    any ``last_error`` left by the self-healing retry loop, then returns the
+    model's text as the node output. Pure generation, so it declares no guarded
+    action.
+    """
+
+    kind = "router"
+
+    def __init__(
+        self,
+        router: Router,
+        *,
+        name: str | None = None,
+        task: TaskKind = TaskKind.REASON,
+        force: str | None = None,
+    ):
+        super().__init__(name)
+        self.router = router
+        self.task = task
+        self.force = force
+
+    async def run(self, node: TaskNode, context: dict) -> dict:
+        parts = [f"Task: {node.description or node.id}"]
+        deps = context.get("dependencies") or {}
+        if deps:
+            parts.append("Results from prior steps:")
+            for dep_id, outputs in deps.items():
+                parts.append(f"- {dep_id}: {outputs}")
+        if context.get("last_error"):
+            parts.append(
+                f"Your previous attempt failed with: {context['last_error']}. "
+                "Correct it this time."
+            )
+        result = await self.router.generate(
+            [Message(role="user", content="\n".join(parts))],
+            task=self.task,
+            force=self.force,  # type: ignore[arg-type]
+        )
+        return {"text": result.text, "tier": result.tier}
+
+
+def build_agent(kind: str, handler: Handler) -> BaseAgent:
+    """Construct a typed agent by kind name, wrapping ``handler``."""
+    by_kind: dict[str, type[_TypedAgent]] = {
+        "coder": CoderAgent,
+        "search": SearchAgent,
+        "reviewer": ReviewerAgent,
+        "sysadmin": SysAdminAgent,
+    }
+    return by_kind.get(kind, ReviewerAgent)(handler)

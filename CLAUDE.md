@@ -94,11 +94,13 @@ omniord/
 │   ├── __init__.py
 │   ├── main.py                     # CLI entry point (Typer + Rich)
 │   ├── config.py                   # Pydantic settings & env config
+│   ├── progress.py                 # Live progress tracker (event bus → Rich)
 │   ├── core/
 │   │   ├── __init__.py
 │   │   ├── dag.py                  # TaskNode & DAG structure
 │   │   ├── engine.py               # Async execution engine
 │   │   ├── events.py               # Pub/sub event bus
+│   │   ├── planner.py              # Prompt → DAG (intent parser)
 │   │   └── orchestrator.py         # Memory recall → swarm run → persist
 │   ├── router/
 │   │   ├── __init__.py
@@ -246,14 +248,19 @@ pip install -e ".[dev]"
 omniord                     # banner + hint
 omniord version             # print the version
 omniord config              # show the resolved local/cloud configuration
-omniord run "<task>"        # orchestration is stubbed until later phases
+omniord run "<task>"        # plan → orchestrate → execute (needs a model tier)
 
-# Run the full test suite
+# Lint, type-check, and test (the same checks CI runs)
+ruff check .
+mypy
 pytest
 
 # Run one file's tests
 pytest tests/test_config.py -q
 ```
+
+CI (`.github/workflows/ci.yml`) runs ruff, mypy, and pytest on 3.11 and 3.12
+for every push to `main` and every pull request. Keep all three green.
 
 ---
 
@@ -341,11 +348,10 @@ the Phase-2 `Router` can be dropped in as the embedder) and
 into the swarm's working memory, runs the task DAG through the guarded swarm, and
 persists the outcome for future recall).
 
-**All six phases are complete.** Tests: `test_config.py`, `test_cli.py`,
-`test_router.py`, `test_dag.py`, `test_tool_factory.py`, `test_safety.py`,
-`test_integration.py` (87 tests, passing) — including an end-to-end pipeline that
-synthesizes a tool with the factory, runs it in the sandbox as a DAG through the
-swarm, saves the result to the store, and retrieves it by semantic search.
+**All six phases are complete**, plus the post-1.0 upgrades below. The suite
+includes an end-to-end pipeline that synthesizes a tool with the factory, runs
+it in the sandbox as a DAG through the swarm, saves the result to the store, and
+retrieves it by semantic search.
 
 - [x] Phase 1 — Project setup & CLI
 - [x] Phase 2 — Hybrid LLM router
@@ -353,3 +359,28 @@ swarm, saves the result to the store, and retrieves it by semantic search.
 - [x] Phase 4 — AST safety, sandbox, tool factory
 - [x] Phase 5 — Safety guardrails & agent swarm
 - [x] Phase 6 — Memory system & end-to-end integration
+
+### Post-1.0 upgrades
+
+Built on top of the six phases:
+
+- **Planner (`core/planner.py`).** Turns a prompt into a validated `DAG` via the
+  router's Tier-0 model (JSON step list with dependencies + agent kind), with a
+  single-node fallback when the output can't be parsed.
+- **Live CLI `run`.** `omniord run "<task>"` now plans → orchestrates → executes
+  through the guarded swarm, rendering per-node progress live via a
+  `rich.live.Live` display; it fails gracefully when no model tier is reachable.
+- **Router-backed agent (`agents.RouterAgent`) + `build_agent`.** An agent that
+  executes a node by reasoning with the router; `--tier` forces local/cloud.
+- **Node-level self-healing.** `Swarm(max_retries=N)` retries a failing node,
+  feeding the prior error back into the node context (`last_error`) and emitting
+  `NODE_RETRY` events; action denials are terminal and never retried. Fulfils
+  principle #4 beyond the tool factory.
+- **Live progress (`progress.py`).** `ProgressTracker` consumes the event bus and
+  renders a Rich status table (framework-agnostic state, unit-tested).
+- **CI + quality gates.** `ruff` + `mypy` configured in `pyproject.toml` and run
+  in CI alongside `pytest`.
+
+Test suite: 98 tests across `test_config`, `test_cli`, `test_router`,
+`test_dag`, `test_tool_factory`, `test_safety`, `test_integration`,
+`test_planner`, `test_progress`.

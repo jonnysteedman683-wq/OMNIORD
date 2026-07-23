@@ -9,12 +9,16 @@ the :class:`~omniord.agents.swarm.Swarm` (concurrent, guarded execution), and
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from pydantic import BaseModel, Field
 
-from omniord.agents.swarm import Swarm
 from omniord.core.dag import DAG, NodeStatus, TaskNode
 from omniord.core.events import EventBus
 from omniord.memory.store import MemoryRecord, MemoryStore
+
+if TYPE_CHECKING:
+    from omniord.agents.swarm import Swarm
 
 
 class OrchestrationResult(BaseModel):
@@ -37,6 +41,9 @@ class Orchestrator:
         swarm: Swarm | None = None,
         bus: EventBus | None = None,
     ) -> None:
+        # Imported lazily to avoid a core↔agents import cycle at module load.
+        from omniord.agents.swarm import Swarm
+
         self.memory = memory
         self.bus = bus or EventBus()
         self.swarm = swarm or Swarm(bus=self.bus)

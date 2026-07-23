@@ -19,7 +19,6 @@ from omniord.tools.factory import ToolFactory, ToolSpec
 from omniord.tools.registry import ToolRegistry
 from omniord.tools.sandbox import Sandbox
 
-
 # --------------------------------------------------------------------------- #
 # HashingEmbedder + MemoryStore
 # --------------------------------------------------------------------------- #

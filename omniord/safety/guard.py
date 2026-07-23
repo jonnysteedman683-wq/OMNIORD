@@ -17,8 +17,9 @@ from __future__ import annotations
 import difflib
 import inspect
 import re
+from collections.abc import Awaitable, Callable
 from enum import Enum
-from typing import Any, Awaitable, Callable
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -100,7 +101,9 @@ class RiskAssessor:
         if kind in self.MODERATE_KINDS:
             return RiskAssessment(level=RiskLevel.MODERATE, reason=f"{kind!r} has side effects")
         if kind in self.SAFE_KINDS:
-            return RiskAssessment(level=RiskLevel.SAFE, reason=f"{kind!r} is read-only or in-memory")
+            return RiskAssessment(
+                level=RiskLevel.SAFE, reason=f"{kind!r} is read-only or in-memory"
+            )
         return RiskAssessment(level=RiskLevel.MODERATE, reason=f"unclassified action {kind!r}")
 
 

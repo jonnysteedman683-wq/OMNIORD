@@ -15,14 +15,14 @@ concurrently. Around every worker step it:
 
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
 
 from omniord.agents.base import BaseAgent
 from omniord.core.dag import DAG, TaskNode
 from omniord.core.engine import ExecutionEngine
-from omniord.core.events import EventBus
+from omniord.core.events import EventBus, EventType
 from omniord.memory.working import WorkingMemory
-from omniord.safety.guard import SafetyGuard
+from omniord.safety.guard import ActionDenied, SafetyGuard
 
 AgentSelector = Callable[[TaskNode], BaseAgent]
 
@@ -42,11 +42,13 @@ class Swarm:
         memory: WorkingMemory | None = None,
         bus: EventBus | None = None,
         selector: AgentSelector | None = None,
+        max_retries: int = 0,
     ) -> None:
         self.bus = bus or EventBus()
         self.engine = engine or ExecutionEngine(self.bus)
         self.guard = guard or SafetyGuard()
         self.memory = memory or WorkingMemory()
+        self.max_retries = max_retries
         self._assignments: dict[str, BaseAgent] = {}
         self._selector = selector
 
@@ -69,12 +71,29 @@ class Swarm:
 
         async def execute(node: TaskNode, dep_outputs: dict[str, dict]) -> dict:
             agent = self._agent_for(node)
-            context = {"dependencies": dep_outputs, "memory": self.memory.snapshot()}
+            context: dict = {"dependencies": dep_outputs, "memory": self.memory.snapshot()}
+            attempt = 0
             try:
-                action = agent.action_for(node, context)
-                if action is not None:
-                    await self.guard.enforce(action)  # raises ActionDenied if blocked
-                outputs = await agent.run(node, context)
+                # Self-healing loop: an action denial is terminal, but any other
+                # failure is retried (with the error fed back into context) up to
+                # max_retries times before it propagates and fails the node.
+                while True:
+                    attempt += 1
+                    try:
+                        action = agent.action_for(node, context)
+                        if action is not None:
+                            await self.guard.enforce(action)
+                        outputs = await agent.run(node, context)
+                        break
+                    except ActionDenied:
+                        raise
+                    except Exception as exc:
+                        if attempt > self.max_retries:
+                            raise
+                        context = {**context, "last_error": str(exc), "attempt": attempt}
+                        await self.bus.publish(
+                            EventType.NODE_RETRY, id=node.id, attempt=attempt, error=str(exc)
+                        )
             finally:
                 await agent.teardown()
             self.memory.set(node.id, outputs)

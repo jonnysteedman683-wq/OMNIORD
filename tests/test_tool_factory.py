@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator, Sequence
 from pathlib import Path
-from typing import AsyncIterator, Sequence
 
 import pytest
 
@@ -17,7 +17,6 @@ from omniord.tools.ast_checker import (
     is_safe,
 )
 from omniord.tools.factory import (
-    BuildResult,
     RouterCodeGenerator,
     ToolFactory,
     ToolSpec,
@@ -25,7 +24,6 @@ from omniord.tools.factory import (
 )
 from omniord.tools.registry import ToolRegistry
 from omniord.tools.sandbox import Sandbox
-
 
 # --------------------------------------------------------------------------- #
 # AST checker
