@@ -298,13 +298,22 @@ health-check failure, error, latency-limit timeout, or low confidence).
 Provider connectors are unit-tested with `httpx.MockTransport`; router policy is
 tested with in-memory fake providers.
 
-Tests: `tests/test_config.py`, `tests/test_cli.py`, `tests/test_router.py`
-(26 tests, passing). The `core`, `tools`, `agents`, `safety`, and `memory`
-subpackages do not exist yet — they arrive in their respective phases.
+*Phase 3* — the `core/` package: `dag.py` (`TaskNode` and `DAG` with dependency
+validation, Kahn's-algorithm topological sort, cycle detection, and dependency
+`layers()`), `engine.py` (the `ExecutionEngine` that launches each node as soon
+as its dependencies complete — independent branches run concurrently — passes
+each node its dependencies' outputs as context, skips dependents of a failed
+node, and supports `fail_fast` cancellation), and `events.py` (an async pub/sub
+`EventBus` with typed `EventType`s, sync/async handlers, error isolation, and a
+`stream()` queue for live progress).
+
+Tests: `tests/test_config.py`, `tests/test_cli.py`, `tests/test_router.py`,
+`tests/test_dag.py` (43 tests, passing). The `tools`, `agents`, `safety`, and
+`memory` subpackages do not exist yet — they arrive in their respective phases.
 
 - [x] Phase 1 — Project setup & CLI
 - [x] Phase 2 — Hybrid LLM router
-- [ ] Phase 3 — DAG engine & event bus
+- [x] Phase 3 — DAG engine & event bus
 - [ ] Phase 4 — AST safety, sandbox, tool factory
 - [ ] Phase 5 — Safety guardrails & agent swarm
 - [ ] Phase 6 — Memory system & end-to-end integration
