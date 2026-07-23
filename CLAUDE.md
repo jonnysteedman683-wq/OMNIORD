@@ -317,13 +317,24 @@ self-healing loop: generate → AST check → sandbox-test → repair → regist
 bounded by `max_retries`; the `CodeGenerator` is injected, and
 `RouterCodeGenerator` adapts the Phase-2 `Router`).
 
+*Phase 5* — the `safety/` and `agents/` packages plus working memory:
+`safety/guard.py` (`RiskAssessor` classifying actions SAFE/MODERATE/CRITICAL by
+kind and destructive-command patterns; `SafetyGuard` that auto-runs SAFE, logs
+and runs MODERATE, and halts CRITICAL with a unified diff and an explicit
+confirmation handler — failing closed when none is set), `agents/base.py`
+(`BaseAgent`, a generic `FunctionAgent`, and typed `CoderAgent`/`SearchAgent`/
+`ReviewerAgent`/`SysAdminAgent`), `agents/swarm.py` (the `Swarm` running DAG
+nodes through the Phase-3 engine with the guard enforced on each worker step, a
+shared `WorkingMemory`, and per-node agent teardown), and `memory/working.py`
+(the thread-safe `WorkingMemory` scratchpad).
+
 Tests: `test_config.py`, `test_cli.py`, `test_router.py`, `test_dag.py`,
-`test_tool_factory.py` (61 tests, passing). The `agents`, `safety`, and `memory`
-subpackages do not exist yet — they arrive in their respective phases.
+`test_tool_factory.py`, `test_safety.py` (80 tests, passing). Remaining: the
+persistent memory store and end-to-end integration (Phase 6).
 
 - [x] Phase 1 — Project setup & CLI
 - [x] Phase 2 — Hybrid LLM router
 - [x] Phase 3 — DAG engine & event bus
 - [x] Phase 4 — AST safety, sandbox, tool factory
-- [ ] Phase 5 — Safety guardrails & agent swarm
+- [x] Phase 5 — Safety guardrails & agent swarm
 - [ ] Phase 6 — Memory system & end-to-end integration
