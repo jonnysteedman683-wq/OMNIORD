@@ -307,13 +307,23 @@ node, and supports `fail_fast` cancellation), and `events.py` (an async pub/sub
 `EventBus` with typed `EventType`s, sync/async handlers, error isolation, and a
 `stream()` queue for live progress).
 
-Tests: `tests/test_config.py`, `tests/test_cli.py`, `tests/test_router.py`,
-`tests/test_dag.py` (43 tests, passing). The `tools`, `agents`, `safety`, and
-`memory` subpackages do not exist yet — they arrive in their respective phases.
+*Phase 4* — the `tools/` package: `ast_checker.py` (static AST screening against
+a `SecurityPolicy` — forbidden imports, code-injection builtins, dangerous
+dotted calls, and dunder-access sandbox-escape vectors), `sandbox.py` (isolated
+`python -I` subprocess in a throwaway workdir with a hard `asyncio` timeout),
+`registry.py` (persists validated tools as modules + an `index.json` manifest
+with descriptions and JSON schemas), and `factory.py` (the `ToolFactory`
+self-healing loop: generate → AST check → sandbox-test → repair → register,
+bounded by `max_retries`; the `CodeGenerator` is injected, and
+`RouterCodeGenerator` adapts the Phase-2 `Router`).
+
+Tests: `test_config.py`, `test_cli.py`, `test_router.py`, `test_dag.py`,
+`test_tool_factory.py` (61 tests, passing). The `agents`, `safety`, and `memory`
+subpackages do not exist yet — they arrive in their respective phases.
 
 - [x] Phase 1 — Project setup & CLI
 - [x] Phase 2 — Hybrid LLM router
 - [x] Phase 3 — DAG engine & event bus
-- [ ] Phase 4 — AST safety, sandbox, tool factory
+- [x] Phase 4 — AST safety, sandbox, tool factory
 - [ ] Phase 5 — Safety guardrails & agent swarm
 - [ ] Phase 6 — Memory system & end-to-end integration
