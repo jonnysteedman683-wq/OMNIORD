@@ -234,20 +234,21 @@ moving on. Do not start a phase until the previous one's tests pass.
 
 ### Commands
 
-> Fill these in with real invocations as the project takes shape. Expected shape:
-
 ```bash
 # Install (editable, with dev extras)
 pip install -e ".[dev]"
 
 # Run the CLI
-python -m omniord            # or: omniord   (once the console_scripts entry exists)
+omniord                     # banner + hint
+omniord version             # print the version
+omniord config              # show the resolved local/cloud configuration
+omniord run "<task>"        # orchestration is stubbed until later phases
 
 # Run the full test suite
 pytest
 
-# Run one phase's tests
-pytest tests/test_dag.py -q
+# Run one file's tests
+pytest tests/test_config.py -q
 ```
 
 ---
@@ -281,10 +282,15 @@ pytest tests/test_dag.py -q
 
 ## 9. Current state
 
-Nothing is implemented yet — this repository currently contains only this
-`CLAUDE.md`. Update the checklist as phases land.
+**Phase 1 is implemented.** The package (`omniord/`) has `config.py`
+(`pydantic-settings`, nested local/cloud tiers) and `main.py` (Typer + Rich CLI
+with a banner and the `version`, `config`, and `run` commands). `run` is a
+recognized command but reports that orchestration is not yet implemented.
+Tests: `tests/test_config.py`, `tests/test_cli.py` (10 tests, passing). The
+`core`, `router`, `tools`, `agents`, `safety`, and `memory` subpackages do not
+exist yet — they arrive in their respective phases.
 
-- [ ] Phase 1 — Project setup & CLI
+- [x] Phase 1 — Project setup & CLI
 - [ ] Phase 2 — Hybrid LLM router
 - [ ] Phase 3 — DAG engine & event bus
 - [ ] Phase 4 — AST safety, sandbox, tool factory
