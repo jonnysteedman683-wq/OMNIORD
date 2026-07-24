@@ -15,8 +15,9 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections.abc import AsyncIterator, Callable, Sequence
 from enum import Enum
-from typing import AsyncIterator, Callable, Literal, Sequence
+from typing import Literal
 
 from omniord.config import OmniordSettings
 from omniord.router.base import (
@@ -114,7 +115,7 @@ class Router:
         if go_local:
             try:
                 return await self._generate_local(messages, task, confidence_scorer)
-            except (ProviderError, asyncio.TimeoutError) as exc:  # LowConfidence is a ProviderError
+            except (TimeoutError, ProviderError) as exc:  # LowConfidence is a ProviderError
                 if force == "local":
                     raise RouterError(f"local tier failed and fallback is disabled: {exc}") from exc
                 # fall through to the cloud tier

@@ -12,8 +12,9 @@ import asyncio
 import contextlib
 import inspect
 import time
+from collections.abc import AsyncIterator, Awaitable, Callable
 from enum import Enum
-from typing import Any, AsyncIterator, Callable, Awaitable
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -29,6 +30,7 @@ class EventType(str, Enum):
     NODE_COMPLETED = "node_completed"
     NODE_FAILED = "node_failed"
     NODE_SKIPPED = "node_skipped"
+    NODE_RETRY = "node_retry"
 
 
 class Event(BaseModel):
@@ -57,7 +59,8 @@ class EventBus:
 
     async def publish(self, type: str | EventType, **payload: Any) -> Event:
         """Build and dispatch an event to every subscriber."""
-        event = Event(type=str(type.value if isinstance(type, EventType) else type), payload=payload)
+        type_value = type.value if isinstance(type, EventType) else type
+        event = Event(type=str(type_value), payload=payload)
         for handler in list(self._handlers):
             try:
                 result = handler(event)
@@ -69,7 +72,7 @@ class EventBus:
         return event
 
     @contextlib.asynccontextmanager
-    async def stream(self) -> AsyncIterator["asyncio.Queue[Event]"]:
+    async def stream(self) -> AsyncIterator[asyncio.Queue[Event]]:
         """Yield a queue that receives every event for the context's duration.
 
         Useful for driving a live progress display::

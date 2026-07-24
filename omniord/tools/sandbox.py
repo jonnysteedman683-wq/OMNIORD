@@ -69,7 +69,7 @@ class Sandbox:
         try:
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=limit)
             returncode = proc.returncode
-        except asyncio.TimeoutError:
+        except TimeoutError:
             proc.kill()
             await proc.wait()
             stdout, stderr, returncode, timed_out = b"", b"", None, True

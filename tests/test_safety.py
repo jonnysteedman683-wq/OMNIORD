@@ -22,7 +22,6 @@ from omniord.safety.guard import (
     build_diff,
 )
 
-
 # --------------------------------------------------------------------------- #
 # Risk assessment
 # --------------------------------------------------------------------------- #
@@ -200,3 +199,54 @@ async def test_coder_agent_is_moderate_and_runs() -> None:
     swarm.assign("code", CoderAgent(_echo))
     nodes = await swarm.run(dag)
     assert nodes["code"].status is NodeStatus.COMPLETED
+
+
+# --------------------------------------------------------------------------- #
+# Node-level self-healing (retry loop)
+# --------------------------------------------------------------------------- #
+
+
+async def test_swarm_retries_until_success() -> None:
+    calls = {"n": 0}
+
+    async def flaky(node: TaskNode, context: dict) -> dict:
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise RuntimeError("transient")
+        # The retry loop feeds the prior error back into the context.
+        return {"attempts": calls["n"], "saw_error": context.get("last_error")}
+
+    dag = DAG([TaskNode(id="n1")])
+    swarm = Swarm(max_retries=3)
+    swarm.assign("n1", ReviewerAgent(flaky))
+    nodes = await swarm.run(dag)
+    assert nodes["n1"].status is NodeStatus.COMPLETED
+    assert nodes["n1"].outputs["attempts"] == 3
+    assert nodes["n1"].outputs["saw_error"] == "transient"
+
+
+async def test_swarm_fails_after_exhausting_retries() -> None:
+    async def always_fail(node: TaskNode, context: dict) -> dict:
+        raise RuntimeError("nope")
+
+    dag = DAG([TaskNode(id="n1")])
+    swarm = Swarm(max_retries=2)
+    swarm.assign("n1", ReviewerAgent(always_fail))
+    nodes = await swarm.run(dag)
+    assert nodes["n1"].status is NodeStatus.FAILED
+    assert nodes["n1"].error == "nope"
+
+
+async def test_swarm_does_not_retry_denied_actions() -> None:
+    calls = {"n": 0}
+
+    async def handler(node: TaskNode, context: dict) -> dict:
+        calls["n"] += 1
+        return {}
+
+    dag = DAG([TaskNode(id="danger")])
+    swarm = Swarm(max_retries=3)  # denial is terminal despite retries being enabled
+    swarm.assign("danger", SysAdminAgent(handler))
+    nodes = await swarm.run(dag)
+    assert nodes["danger"].status is NodeStatus.FAILED
+    assert calls["n"] == 0  # never ran; blocked before execution

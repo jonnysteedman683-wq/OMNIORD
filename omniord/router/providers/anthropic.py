@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import time
-from typing import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Sequence
 
 import httpx
 
@@ -75,7 +75,9 @@ class AnthropicProvider(LLMProvider):
         model = model or self.default_model
         start = time.perf_counter()
         try:
-            resp = await self._client.post("/v1/messages", json=self._payload(messages, model, False))
+            resp = await self._client.post(
+                "/v1/messages", json=self._payload(messages, model, False)
+            )
             resp.raise_for_status()
             data = resp.json()
         except httpx.HTTPError as exc:

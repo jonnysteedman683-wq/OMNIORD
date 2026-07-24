@@ -10,7 +10,6 @@ from omniord.core.dag import DAG, CycleError, DAGError, NodeStatus, TaskNode
 from omniord.core.engine import ExecutionEngine
 from omniord.core.events import Event, EventBus, EventType
 
-
 # --------------------------------------------------------------------------- #
 # DAG structure
 # --------------------------------------------------------------------------- #

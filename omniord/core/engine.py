@@ -16,12 +16,13 @@ A node's work is supplied by a ``NodeExecutor`` coroutine::
 from __future__ import annotations
 
 import asyncio
-from typing import Awaitable, Callable
+from collections.abc import Callable, Coroutine
+from typing import Any
 
 from omniord.core.dag import DAG, NodeStatus, TaskNode
 from omniord.core.events import EventBus, EventType
 
-NodeExecutor = Callable[[TaskNode, dict[str, dict]], Awaitable[dict]]
+NodeExecutor = Callable[[TaskNode, dict[str, dict]], Coroutine[Any, Any, dict]]
 
 
 class ExecutionEngine:
@@ -44,7 +45,7 @@ class ExecutionEngine:
         completed: set[str] = set()
         blocked: set[str] = set()  # failed or skipped — dependents can't run
         started: set[str] = set()
-        running: dict[asyncio.Task, str] = {}
+        running: dict[asyncio.Task[dict], str] = {}
 
         async def schedule() -> None:
             """Launch every newly-ready node and skip every newly-blocked one.

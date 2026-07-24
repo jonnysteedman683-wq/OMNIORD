@@ -10,7 +10,8 @@ they are validated at the boundary and passed inward as typed objects.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import AsyncIterator, Literal, Sequence
+from collections.abc import AsyncIterator, Sequence
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
